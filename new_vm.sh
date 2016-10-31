@@ -1,7 +1,10 @@
 #!/bin/bash
+dir=$(dirname "$0")
+set -e
 
-NAME="vm-test-0"
-# DRYRUN=true
+### DEFAULT OPTIONS ###
+
+DRYRUN=false
 
 VIRT_TYPE="kvm"
 OS_TYPE="linux"
@@ -28,103 +31,74 @@ NETWORK_PROFILE="ovs-lan"
 NETWORK_PORTGROUP="trust"
 NETWORK_MODEL="virtio"
 
+AUTHORIZED_KEYS="""
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC+j5HDc9fw2BtVqwXB8tO8MUDrva/VSbqv5+TSnUPWmYdW8guj+v1UzFK7wPYOHr/b4j9UVculFuB17niQS5HEh21vT7ogdKucHutLR0/zLKl43KFepr4dOVM5UEcnVbBng64kwlowLqpDjdSKnaysT3s0jHzMd/3xnY4yJ3UdYIl+lLtIeqvmFZssDR32E0q11M/JmotWaUcmBu2bHj4yWCjAWOxMTevNx57r6vLJM87Y/K3HKabQVtopfBs0Mr2l6uTZgxwPX47+gcO55Qho1oCwEUfFWWWg9oxMBVfgMny7UGzhLEbUIsmo7cxbzBA6lKSZzByptkZ9yMQapLVeiAOViTEfXeHOa4KfNln3cKg+VCCMS8YceSkZugFubuT6JGvnL+fB64oKI060wL7TLzm5bZ9nIqkMe/VtK0DI0wQ0LWbKCcB5PSP0DbJPuQM4ZEpDVWSea0mST4lUeTXpwIbPsTavp39RH4UudngVGA8fFmduLAQrbnAZS0zLgGIDg18zxIQlI/5WZ/N7kxl59J269XvaBoMKf0LR+tKa6IfOkZRiAaX2oIio1FAUZPdVtNhSfVhSN/t4osB7ObWRDb6JCUpYxot/tY42SxDXroUfhmKPim4+DrMrq11Xr+ckhDz50yRmrHwbP/Sc7Gt9IThjBlKaVPSnhpT4xxjP+w== anthony@gate.aruhier.fr
+"""
 
-get_network_options() {
-    net=""
-    [[ -n "$NETWORK_BRIDGE" ]] && net="${net}bridge="$NETWORK_BRIDGE","
-    [[ -n "$NETWORK_PROFILE" ]] && net="${net}network="$NETWORK_PROFILE","
-    [[ -n "$NETWORK_PORTGROUP" ]] && \
-        net="${net}portgroup="$NETWORK_PORTGROUP","
-    [[ -n "$NETWORK_MODEL" ]] && net="${net}model="$NETWORK_MODEL","
+SYSTEMD_NETWORKD_PROFILE="""
+[Match]
+Name=*
 
-    [[ -n "$net" ]] && net="--network $net"
-    echo $net
+[Network]
+DHCP=yes
+"""
+
+#######################
+
+
+show_help() {
+    echo "usage: $0 [-h] -n NAME"
+    echo ""
+    echo "Wrapper to create a kvm domain based on ArchLinux"
+    echo ""
+    echo "required arguments:"
+    echo "    -n NAME, --name NAME   container name to create"
+    echo ""
+    echo "optional arguments:"
+    echo "    -D, --dryrun  does not install the vm, just print the" \
+       "virt-install command"
+    echo "    -h, --help    show this help message and exit"
 }
 
-get_disk_options() {
-    disk=""
-    [[ -n "$DISK_BUS" ]] && disk="${disk}bus="$DISK_BUS","
-    [[ -n "$DISK_CACHE" ]] && disk="${disk}cache="$DISK_CACHE","
-    [[ -n "$DISK_FORMAT" ]] && disk="${disk}format=$DISK_FORMAT,"
-    [[ -n "$DISK_PATH" ]] && disk="${disk}path="$DISK_PATH","
-    [[ -n "$DISK_POOL" ]] && disk="${disk}pool="$DISK_POOL","
-    [[ -n "$DISK_SHAREABLE" ]] && disk="${disk}shareable="$DISK_SHAREABLE","
-    [[ -n "$DISK_SIZE" ]] && disk="${disk}size="$DISK_SIZE","
 
-    [[ -n "$disk" ]] && disk="--disk $disk"
-    echo $disk
-}
+args=$(getopt -l "name:dryrun" -o "n:c:Dh" -- "$@")
+eval set -- "$args"
 
-get_os_options() {
-    os_type=""
-    os_variant=""
-    [[ -n "$OS_TYPE" ]] && os_type="--os-type $OS_TYPE"
-    [[ -n "$OS_VARIANT" ]] && os_variant="--os-type $OS_VARIANT"
+while true ; do
+    case "$1" in
+        -n|--name)
+            NAME="$2"
+            shift 2
+            ;;
+        -D|--dryrun)
+            DRYRUN=true
+            shift
+            ;;
+        -h)
+            show_help
+            exit 0
+            ;;
+        --) shift ; break ;;
+        *)
+            echo "Invalid option: -$1" >&2
+            show_help
+            break
+            ;;
+    esac
+done
 
-    echo "$os_type $os_variant"
-}
-
-get_virt_type_options() {
-    virt_type=""
-
-    [[ -n "$VIRT_TYPE" ]] && virt_type="--virt-type $VIRT_TYPE"
-    echo $virt_type
-}
-
-get_cpu_options() {
-    cpu=""
-    [[ -n "$CPU_MODE" ]] && cpu="${cpu}mode=$CPU_MODE,"
-    [[ -n "$CPU_MODEL" ]] && cpu="${cpu}model=$CPU_MODEL,"
-
-    [[ -n "$cpu" ]] && cpu="--cpu $cpu"
-
-    echo $cpu
-}
-
-get_vcpu_options() {
-    vcpus=""
-    [[ -n "$VCPUS" ]] && vcpus="${vcpus}$VCPUS,"
-    [[ -n "$MAX_VCPUS" ]] && vcpus="${vcpus}maxvcpus=$MAX_VCPUS,"
-
-    [[ -n "$vcpus" ]] && vcpus="--vcpus $vcpus"
-
-    echo "$vcpus"
-}
-
-get_memory_options() {
-    memtune=""
-    memory=""
-    if [ -n "$MAX_MEMORY" ]
-        then memtune="soft_limit="$MEMORY""
-        memory="maxmemory="$MAX_MEMORY""
-    else
-        memory=""$MEMORY""
-    fi
-
-    [[ -n "$memtune" ]] && memtune="--memtune $memtune"
-    [[ -n "$memory" ]] && memory="--memory $memory"
-
-    echo "$memory $memtune"
-}
-
-virt_install_cmd="virt-install --name "$NAME" \
-    --import \
-    --noreboot \
-    --video virtio \
-    $(get_memory_options) \
-    $(get_vcpu_options) \
-    $(get_cpu_options) \
-    $(get_disk_options) \
-    $(get_virt_type_options) \
-    $(get_network_options) \
-    $(get_os_options) \
-    "
-
-if [ $DRYRUN ]
-    then echo $virt_install_cmd
-    exit
-else
-    eval $virt_install_cmd
+if [ -z "$NAME" ]
+    then show_help
+    exit 1
 fi
 
-./install_arch.sh $NAME
+source $dir/src/virt_install_wrapper.sh
+if $DRYRUN
+    then echo `get_virt_install_command`
+    exit
+else
+    eval `get_virt_install_command`
+fi
+
+source $dir/src/install_arch.sh
+install_archlinux
