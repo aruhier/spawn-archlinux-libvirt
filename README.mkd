@@ -1,0 +1,38 @@
+Spawn ArchLinux Libvirt Domain
+==============================
+
+Script to easily spawn and install a new ArchLinux VM on Libvirt. This script
+is not meant to be generic, and is extremely tied to my setup, but you can fork
+it and adapt it to your setup.
+
+Requires:
+  * For raw images: util-linux (losetup)
+  * For qcow2 images: qemu (qemu-nbd)
+  * arch-install-scripts (arch-chroot)
+
+Usage
+-----
+
+Run `./new_vm.sh`:
+
+```
+$ ./new_vm.sh -h
+
+usage: ./new_vm.sh [-h] -n NAME
+
+Wrapper to create a kvm domain based on ArchLinux
+
+required arguments:
+    -n NAME, --name NAME   container name to create
+
+optional arguments:
+    -D, --dryrun  does not install the vm, just print the virt-install command
+    -h, --help    show this help message and exit
+```
+
+
+License
+-------
+
+Tool under the BSD license. Do not hesitate to report bugs, ask me some
+questions or do some pull request if you want to!
