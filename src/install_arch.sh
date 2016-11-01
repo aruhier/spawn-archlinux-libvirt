@@ -97,12 +97,12 @@ mount_root_partition() {
 }
 
 install_pkg() {
-    pacstrap -c "$MOUNT_POINT" base base-devel openssh python2 syslinux
+    pacstrap -c "$MOUNT_POINT" base base-devel openssh python2 syslinux haveged
 }
 
 enable_systemd_services() {
     arch-chroot "$MOUNT_POINT" \
-        systemctl enable sshd systemd-networkd systemd-resolved
+        systemctl enable sshd systemd-networkd systemd-resolved haveged
 }
 
 add_ssh_keys() {
