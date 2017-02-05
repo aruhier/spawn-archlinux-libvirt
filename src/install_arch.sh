@@ -102,7 +102,8 @@ install_pkg() {
 
 enable_systemd_services() {
     arch-chroot "$MOUNT_POINT" \
-        systemctl enable sshd systemd-networkd systemd-resolved haveged
+        systemctl enable sshd systemd-networkd systemd-resolved haveged \
+            getty@ttyS0
 }
 
 add_ssh_keys() {

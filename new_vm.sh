@@ -10,6 +10,7 @@ VIRT_TYPE="kvm"
 OS_TYPE="linux"
 OS_VARIANT=""
 
+# In MiB
 MEMORY="500"
 MAX_MEMORY="1000"
 

@@ -21,8 +21,8 @@ get_memory_options() {
     memtune=""
     memory=""
     if [ -n "$MAX_MEMORY" ]
-        then memtune="soft_limit="$MEMORY""
-        memory="maxmemory="$MAX_MEMORY""
+        then memtune="soft_limit="$(($MEMORY*1024))""
+        memory=""$MEMORY",maxmemory="$MAX_MEMORY""
     else
         memory=""$MEMORY""
     fi
