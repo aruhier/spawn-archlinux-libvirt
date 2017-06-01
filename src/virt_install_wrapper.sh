@@ -5,6 +5,7 @@ get_virt_install_command() {
         --import \
         --noreboot \
         --video virtio \
+        --clock offset=utc,kvmclock_present=yes,rtc_present=no \
         $(get_memory_options) \
         $(get_vcpu_options) \
         $(get_cpu_options) \
